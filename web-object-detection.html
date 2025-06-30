@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Object Detection on Uploaded Video</title>
+  <style>
+    body {
+      background: #121212;
+      color: white;
+      font-family: Arial, sans-serif;
+      text-align: center;
+      padding: 20px;
+    }
+
+    input[type="file"] {
+      margin: 20px 0;
+    }
+
+    .video-container {
+      display: flex;
+      justify-content: center;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+
+    video, canvas {
+      border: 2px solid #ffcc00;
+      border-radius: 10px;
+      margin-top: 10px;
+    }
+
+    button {
+      padding: 10px 20px;
+      font-size: 16px;
+      background-color: #ffcc00;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      margin-top: 20px;
+    }
+
+    button:hover {
+      background-color: #e6b800;
+    }
+  </style>
+</head>
+<body>
+  <h1>Object Detection on Uploaded Video</h1>
+
+  <input type="file" id="videoUpload" accept="video/mp4">
+
+  <div class="video-container">
+    <video id="video" width="640" height="480" controls></video>
+    <canvas id="canvas" width="640" height="480"></canvas>
+  </div>
+
+  <button onclick="startDetection()">Start Detection</button>
+
+  <!-- TensorFlow.js -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest"></script>
+  <!-- COCO-SSD model -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
+
+  <script>
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    let model;
+    let detectRequested = false;
+
+    document.getElementById('videoUpload').addEventListener('change', function(event) {
+      const file = event.target.files[0];
+      if (file) {
+        const fileURL = URL.createObjectURL(file);
+        video.src = fileURL;
+      }
+    });
+
+    async function startDetection() {
+      if (!model) {
+        model = await cocoSsd.load();
+        console.log('Model loaded.');
+      }
+
+      detectRequested = true;
+      video.play();
+      detectFrame();
+    }
+
+    async function detectFrame() {
+      if (video.paused || video.ended || !detectRequested) return;
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const predictions = await model.detect(canvas);
+
+      ctx.font = '16px Arial';
+      ctx.textBaseline = 'top';
+
+      predictions.forEach(pred => {
+        ctx.beginPath();
+        ctx.rect(...pred.bbox);
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = '#00FFFF';
+        ctx.fillStyle = '#00FFFF';
+        ctx.stroke();
+        ctx.fillText(
+          `${pred.class} (${Math.round(pred.score * 100)}%)`,
+          pred.bbox[0],
+          pred.bbox[1] > 10 ? pred.bbox[1] - 20 : 10
+        );
+      });
+
+      requestAnimationFrame(detectFrame);
+    }
+  </script>
+</body>
+</html>
